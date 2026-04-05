@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply antialiased bg-void text-primary font-sans font-normal scroll-smooth;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  }
+  ::selection {
+    @apply bg-violet-500/30 text-primary;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04) inset, 0 20px 50px -24px rgba(0, 0, 0, 0.5);
+  }
+
+  .glass-panel-interactive {
+    @apply glass-panel transition-all duration-300 ease-smooth;
+  }
+
+  .glass-panel-interactive:hover {
+    @apply border-white/[0.12] -translate-y-0.5;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+      0 24px 56px -20px rgba(0, 0, 0, 0.55), 0 0 40px -12px rgba(139, 92, 246, 0.12);
+  }
+
+  .btn-gradient {
+    @apply relative inline-flex items-center justify-center overflow-hidden rounded-xl px-6 py-3 text-sm font-medium text-white transition-all duration-300 ease-smooth;
+    background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 45%, #2563eb 100%);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset, 0 2px 20px -4px rgba(124, 58, 237, 0.45);
+  }
+
+  .btn-gradient:hover:not(:disabled) {
+    @apply scale-[1.02];
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14) inset, 0 4px 32px -4px rgba(124, 58, 237, 0.55),
+      0 0 48px -8px rgba(37, 99, 235, 0.25);
+  }
+
+  .btn-gradient:active:not(:disabled) {
+    @apply scale-[0.98];
+  }
+
+  .btn-gradient:disabled {
+    @apply opacity-45 cursor-not-allowed scale-100;
+  }
+
+  .btn-ghost {
+    @apply rounded-xl border border-white/[0.1] bg-white/[0.04] px-6 py-3 text-sm font-medium text-primary backdrop-blur-md transition-all duration-300 ease-smooth;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  }
+
+  .btn-ghost:hover {
+    @apply border-white/[0.16] bg-white/[0.07] scale-[1.02];
+    box-shadow: 0 0 24px -8px rgba(139, 92, 246, 0.15);
+  }
+
+  .btn-outline {
+    @apply rounded-xl border border-white/[0.12] px-6 py-3 text-sm font-medium text-primary transition-all duration-300 ease-smooth hover:border-violet-400/40 hover:bg-violet-500/10 hover:shadow-glow-sm;
+  }
+
+  .input-dark {
+    @apply w-full rounded-xl border border-white/[0.08] bg-panel/80 px-4 py-3 text-sm text-primary placeholder:text-muted outline-none transition-all duration-300 ease-smooth backdrop-blur-sm;
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .input-dark:focus {
+    @apply border-violet-500/40 ring-2 ring-violet-500/20;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #c4b5fd 0%, #a5b4fc 40%, #93c5fd 100%);
+  }
+
+  .ambient-blob {
+    @apply pointer-events-none absolute rounded-full blur-[100px] opacity-40;
+  }
+}
+
+/* Stagger delays for hero */
+.delay-1 {
+  animation-delay: 0.08s;
+}
+.delay-2 {
+  animation-delay: 0.16s;
+}
+.delay-3 {
+  animation-delay: 0.24s;
+}
+.delay-4 {
+  animation-delay: 0.32s;
+}
+.delay-5 {
+  animation-delay: 0.42s;
+}
+.delay-6 {
+  animation-delay: 0.52s;
+}
+.delay-7 {
+  animation-delay: 0.62s;
+}
+.delay-8 {
+  animation-delay: 0.72s;
+}
+.opacity-0-start {
+  opacity: 0;
+}
