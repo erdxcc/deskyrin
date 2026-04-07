@@ -216,8 +216,13 @@ export async function firstScan(input: {
     throw err;
   }
 
-  const { user, walletCreatedThisSession } =
-    userService.ensureCustodialWallet(input.userId);
+  const user = userService.getUserById(input.userId);
+  if (!user) {
+    const err = new Error("USER_NOT_FOUND");
+    (err as Error & { code: string }).code = "USER_NOT_FOUND";
+    throw err;
+  }
+  const walletCreatedThisSession = false;
 
   if (!qrRow.assigned_user_id) {
     database
@@ -241,6 +246,11 @@ export async function firstScan(input: {
 
   if (isSolanaConfigured()) {
     assertPartnerSolanaMatchesChain(qrRow.partner_id);
+    if (!user.walletPublicKey) {
+      const err = new Error("NO_WALLET_FOR_CHAIN");
+      (err as Error & { code: string }).code = "NO_WALLET_FOR_CHAIN";
+      throw err;
+    }
     try {
       const { bottleMint, signature } = await mintBottleOnChain({
         bottleId: input.bottleId,

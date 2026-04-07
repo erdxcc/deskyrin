@@ -1,8 +1,14 @@
 import type {
   AuthResponse,
+  CampaignDetail,
+  CampaignSummary,
+  ClaimStakeResponse,
+  CreateStakeResponse,
   FirstScanResponse,
   PublicPartner,
   QrPublic,
+  RecordTaskStepResponse,
+  StakePosition,
   User,
 } from "./types";
 
@@ -91,6 +97,35 @@ export const api = {
     return parse<{ partners: PublicPartner[] }>(res);
   },
 
+  async listCampaigns(token: string | null): Promise<{ campaigns: CampaignSummary[] }> {
+    const res = await fetch(`${base}/api/v1/campaigns`, {
+      headers: authHeader(token),
+    });
+    return parse<{ campaigns: CampaignSummary[] }>(res);
+  },
+
+  async getCampaign(
+    campaignId: string,
+    token: string | null
+  ): Promise<CampaignDetail> {
+    const res = await fetch(
+      `${base}/api/v1/campaigns/${encodeURIComponent(campaignId)}`,
+      { headers: authHeader(token) }
+    );
+    return parse<CampaignDetail>(res);
+  },
+
+  async recordTaskStep(
+    token: string,
+    taskId: string
+  ): Promise<RecordTaskStepResponse> {
+    const res = await fetch(
+      `${base}/api/v1/campaigns/tasks/${encodeURIComponent(taskId)}/record-step`,
+      { method: "POST", headers: authHeader(token) }
+    );
+    return parse<RecordTaskStepResponse>(res);
+  },
+
   async getPartner(partnerId: string): Promise<PublicPartner> {
     const res = await fetch(
       `${base}/api/v1/partners/${encodeURIComponent(partnerId)}`
@@ -100,12 +135,87 @@ export const api = {
 
   async redeemRewards(
     token: string,
-    input: { partnerId: string; amountUsdcMicro: number }
+    input: { partnerId: string; amountPt: number }
   ): Promise<{ user: User }> {
     const res = await fetch(`${base}/api/v1/rewards/redeem`, {
       method: "POST",
       headers: authHeader(token),
       body: JSON.stringify(input),
+    });
+    return parse<{ user: User }>(res);
+  },
+
+  async redeemAc(
+    token: string,
+    input: { partnerId: string; amountAc: number }
+  ): Promise<{ user: User }> {
+    const res = await fetch(`${base}/api/v1/rewards/redeem-ac`, {
+      method: "POST",
+      headers: authHeader(token),
+      body: JSON.stringify(input),
+    });
+    return parse<{ user: User }>(res);
+  },
+
+  async listStakes(token: string): Promise<{ stakes: StakePosition[] }> {
+    const res = await fetch(`${base}/api/v1/tokens/stakes`, {
+      headers: authHeader(token),
+    });
+    return parse<{ stakes: StakePosition[] }>(res);
+  },
+
+  async stakeAc(
+    token: string,
+    input: { amountAc: number; lockDays: number }
+  ): Promise<CreateStakeResponse> {
+    const res = await fetch(`${base}/api/v1/tokens/stake`, {
+      method: "POST",
+      headers: authHeader(token),
+      body: JSON.stringify(input),
+    });
+    return parse<CreateStakeResponse>(res);
+  },
+
+  async claimStake(
+    token: string,
+    stakeId: string
+  ): Promise<ClaimStakeResponse> {
+    const res = await fetch(
+      `${base}/api/v1/tokens/stakes/${encodeURIComponent(stakeId)}/claim`,
+      { method: "POST", headers: authHeader(token) }
+    );
+    return parse<ClaimStakeResponse>(res);
+  },
+
+  async stakeOptions(): Promise<{ lockDays: number[]; curve: string }> {
+    const res = await fetch(`${base}/api/v1/tokens/stake-options`);
+    return parse<{ lockDays: number[]; curve: string }>(res);
+  },
+
+  async walletChallenge(token: string): Promise<{ nonce: string; message: string }> {
+    const res = await fetch(`${base}/api/v1/wallet/challenge`, {
+      method: "POST",
+      headers: authHeader(token),
+    });
+    return parse<{ nonce: string; message: string }>(res);
+  },
+
+  async walletLink(
+    token: string,
+    input: { publicKey: string; signatureB58: string; nonce: string }
+  ): Promise<{ user: User }> {
+    const res = await fetch(`${base}/api/v1/wallet/link`, {
+      method: "POST",
+      headers: authHeader(token),
+      body: JSON.stringify(input),
+    });
+    return parse<{ user: User }>(res);
+  },
+
+  async walletCreateCustodial(token: string): Promise<{ user: User }> {
+    const res = await fetch(`${base}/api/v1/wallet/create-custodial`, {
+      method: "POST",
+      headers: authHeader(token),
     });
     return parse<{ user: User }>(res);
   },

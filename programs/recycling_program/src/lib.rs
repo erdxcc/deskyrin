@@ -4,6 +4,7 @@
 //! Конечному пользователю не нужен кошелёк в телефоне: ключ от `custodial_user` хранит сервис.
 
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::sysvar::clock::Clock;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer};
 
@@ -14,6 +15,10 @@ pub const POOL_STATE_SEED: &[u8] = b"pool_state";
 pub const BOTTLE_SEED: &[u8] = b"bottle";
 /// PDA-владелец токена бутылки до утилизации (программа подписывает burn).
 pub const BOTTLE_ESCROW_SEED: &[u8] = b"bottle_escrow";
+
+/// Deskyrin AC/PT staking (separate from bottle flow).
+pub const DESKYRIN_CFG_SEED: &[u8] = b"deskyrin_cfg";
+pub const STAKE_POS_SEED: &[u8] = b"stake";
 
 #[program]
 pub mod recycling_program {
@@ -157,9 +162,10 @@ pub mod recycling_program {
         );
 
         let bump_escrow = ctx.bumps.bottle_escrow;
+        let bottle_mint_key = ctx.accounts.bottle_mint.key();
         let escrow_seeds: &[&[u8]] = &[
             BOTTLE_ESCROW_SEED,
-            ctx.accounts.bottle_mint.key().as_ref(),
+            bottle_mint_key.as_ref(),
             &[bump_escrow],
         ];
 
@@ -204,6 +210,289 @@ pub mod recycling_program {
 
         Ok(())
     }
+
+    /// One-time: AC + PT mints + vault (payer = partner / backend).
+    pub fn setup_deskyrin_staking(ctx: Context<SetupDeskyrinStaking>) -> Result<()> {
+        let cfg = &mut ctx.accounts.deskyrin_config;
+        cfg.ac_mint = ctx.accounts.ac_mint.key();
+        cfg.pt_mint = ctx.accounts.pt_mint.key();
+        cfg.vault_ac = ctx.accounts.vault_ac.key();
+        cfg.bump = ctx.bumps.deskyrin_config;
+        Ok(())
+    }
+
+    /// Lock AC in vault for `lock_days`; PT unlocks linearly until maturity (matches off-chain curve).
+    pub fn stake_ac_locked(
+        ctx: Context<StakeAcLocked>,
+        stake_idx: u64,
+        amount: u64,
+        lock_days: u16,
+    ) -> Result<()> {
+        require!(amount > 0, ErrorCode::InvalidAmount);
+        require!(
+            matches!(lock_days, 7 | 14 | 30 | 60 | 90),
+            ErrorCode::InvalidLockDays
+        );
+
+        let now = Clock::get()?.unix_timestamp;
+        let period_secs: i64 = i64::from(lock_days) * 86_400;
+        let maturity = now.checked_add(period_secs).ok_or(ErrorCode::MathOverflow)?;
+
+        let total_pt = total_pt_entitled(amount, lock_days)?;
+
+        let st = &mut ctx.accounts.stake_position;
+        st.user = ctx.accounts.user.key();
+        st.stake_idx = stake_idx;
+        st.amount_ac = amount;
+        st.lock_days = lock_days;
+        st.start_ts = now;
+        st.maturity_ts = maturity;
+        st.total_pt = total_pt;
+        st.claimed_pt = 0;
+        st.bump = ctx.bumps.stake_position;
+
+        let cpi = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.user_ac_ata.to_account_info(),
+                to: ctx.accounts.vault_ac.to_account_info(),
+                authority: ctx.accounts.user.to_account_info(),
+            },
+        );
+        token::transfer(cpi, amount)?;
+
+        Ok(())
+    }
+
+    /// Claim vested PT (linear vesting over lock period).
+    pub fn claim_vested_pt(ctx: Context<ClaimVestedPt>, stake_idx: u64) -> Result<()> {
+        require_keys_eq!(ctx.accounts.stake_position.user, ctx.accounts.user.key());
+        require!(ctx.accounts.stake_position.stake_idx == stake_idx, ErrorCode::StakeIdxMismatch);
+
+        let st = &mut ctx.accounts.stake_position;
+        let now = Clock::get()?.unix_timestamp;
+        let claimable = claimable_pt_linear(
+            st.total_pt,
+            st.claimed_pt,
+            st.start_ts,
+            st.maturity_ts,
+            now,
+        )?;
+        require!(claimable > 0, ErrorCode::NothingToClaim);
+
+        st.claimed_pt = st
+            .claimed_pt
+            .checked_add(claimable)
+            .ok_or(ErrorCode::MathOverflow)?;
+
+        let bump = ctx.bumps.program_authority;
+        let seeds: &[&[u8]] = &[PROGRAM_AUTHORITY_SEED, &[bump]];
+        let signer = &[seeds];
+
+        token::mint_to(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                MintTo {
+                    mint: ctx.accounts.pt_mint.to_account_info(),
+                    to: ctx.accounts.user_pt_ata.to_account_info(),
+                    authority: ctx.accounts.program_authority.to_account_info(),
+                },
+                signer,
+            ),
+            claimable,
+        )?;
+
+        Ok(())
+    }
+}
+
+fn total_pt_entitled(ac: u64, lock_days: u16) -> Result<u64> {
+    let mult_bps: u64 = match lock_days {
+        7 => 11_000,
+        14 => 12_500,
+        30 => 15_000,
+        60 => 20_000,
+        90 => 27_500,
+        _ => return Err(ErrorCode::InvalidLockDays.into()),
+    };
+    Ok(ac
+        .saturating_mul(mult_bps)
+        .checked_div(10_000)
+        .ok_or(ErrorCode::MathOverflow)?)
+}
+
+fn claimable_pt_linear(
+    total_pt: u64,
+    claimed: u64,
+    start_ts: i64,
+    maturity_ts: i64,
+    now: i64,
+) -> Result<u64> {
+    let vested = vested_pt_linear(total_pt, start_ts, maturity_ts, now)?;
+    Ok(vested.saturating_sub(claimed))
+}
+
+fn vested_pt_linear(total: u64, start: i64, maturity: i64, now: i64) -> Result<u64> {
+    if now <= start {
+        return Ok(0);
+    }
+    if now >= maturity {
+        return Ok(total);
+    }
+    let num = (now - start) as u128;
+    let den = (maturity - start) as u128;
+    if den == 0 {
+        return Ok(total);
+    }
+    Ok(((total as u128)
+        .saturating_mul(num)
+        .checked_div(den)
+        .ok_or(ErrorCode::MathOverflow)?) as u64)
+}
+
+#[derive(Accounts)]
+pub struct SetupDeskyrinStaking<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + DeskyrinConfig::INIT_SPACE,
+        seeds = [DESKYRIN_CFG_SEED],
+        bump
+    )]
+    pub deskyrin_config: Account<'info, DeskyrinConfig>,
+
+    #[account(
+        init,
+        payer = payer,
+        mint::decimals = 6,
+        mint::authority = program_authority,
+        mint::freeze_authority = program_authority,
+        mint::token_program = token_program,
+    )]
+    pub ac_mint: Account<'info, Mint>,
+
+    #[account(
+        init,
+        payer = payer,
+        mint::decimals = 6,
+        mint::authority = program_authority,
+        mint::freeze_authority = program_authority,
+        mint::token_program = token_program,
+    )]
+    pub pt_mint: Account<'info, Mint>,
+
+    #[account(
+        init_if_needed,
+        payer = payer,
+        associated_token::mint = ac_mint,
+        associated_token::authority = program_authority,
+        associated_token::token_program = token_program,
+    )]
+    pub vault_ac: Account<'info, TokenAccount>,
+
+    #[account(seeds = [PROGRAM_AUTHORITY_SEED], bump)]
+    pub program_authority: UncheckedAccount<'info>,
+
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(stake_idx: u64)]
+pub struct StakeAcLocked<'info> {
+    #[account(seeds = [DESKYRIN_CFG_SEED], bump)]
+    pub deskyrin_config: Account<'info, DeskyrinConfig>,
+
+    #[account(
+        init,
+        payer = user,
+        space = 8 + StakePosition::INIT_SPACE,
+        seeds = [STAKE_POS_SEED, user.key().as_ref(), &stake_idx.to_le_bytes()],
+        bump
+    )]
+    pub stake_position: Account<'info, StakePosition>,
+
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    #[account(
+        mut,
+        constraint = user_ac_ata.owner == user.key(),
+        constraint = user_ac_ata.mint == deskyrin_config.ac_mint
+    )]
+    pub user_ac_ata: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        constraint = vault_ac.key() == deskyrin_config.vault_ac
+    )]
+    pub vault_ac: Account<'info, TokenAccount>,
+
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(stake_idx: u64)]
+pub struct ClaimVestedPt<'info> {
+    #[account(seeds = [DESKYRIN_CFG_SEED], bump)]
+    pub deskyrin_config: Account<'info, DeskyrinConfig>,
+
+    #[account(
+        mut,
+        seeds = [STAKE_POS_SEED, user.key().as_ref(), &stake_idx.to_le_bytes()],
+        bump = stake_position.bump
+    )]
+    pub stake_position: Account<'info, StakePosition>,
+
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    #[account(
+        init_if_needed,
+        payer = user,
+        associated_token::mint = pt_mint,
+        associated_token::authority = user,
+        associated_token::token_program = token_program,
+    )]
+    pub user_pt_ata: Account<'info, TokenAccount>,
+
+    #[account(mut, constraint = pt_mint.key() == deskyrin_config.pt_mint)]
+    pub pt_mint: Account<'info, Mint>,
+
+    #[account(seeds = [PROGRAM_AUTHORITY_SEED], bump)]
+    pub program_authority: UncheckedAccount<'info>,
+
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct DeskyrinConfig {
+    pub ac_mint: Pubkey,
+    pub pt_mint: Pubkey,
+    pub vault_ac: Pubkey,
+    pub bump: u8,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct StakePosition {
+    pub user: Pubkey,
+    pub stake_idx: u64,
+    pub amount_ac: u64,
+    pub lock_days: u16,
+    pub start_ts: i64,
+    pub maturity_ts: i64,
+    pub total_pt: u64,
+    pub claimed_pt: u64,
+    pub bump: u8,
 }
 
 #[derive(Accounts)]
@@ -224,7 +513,6 @@ pub struct FundRewardPool<'info> {
     pub partner_usdc_account: Account<'info, TokenAccount>,
 
     #[account(
-        mut,
         init_if_needed,
         payer = partner,
         associated_token::mint = usdc_mint,
@@ -340,7 +628,6 @@ pub struct RecycleBottle<'info> {
     pub custodial_user: UncheckedAccount<'info>,
 
     #[account(
-        mut,
         init_if_needed,
         payer = backend_signer,
         associated_token::mint = usdc_mint,
@@ -411,4 +698,10 @@ pub enum ErrorCode {
     EscrowMismatch,
     #[msg("Аккаунт custodial_user не совпадает с записью бутылки.")]
     CustodialUserMismatch,
+    #[msg("Недопустимый срок блокировки (7, 14, 30, 60, 90 дней).")]
+    InvalidLockDays,
+    #[msg("Несовпадение индекса стейка.")]
+    StakeIdxMismatch,
+    #[msg("Пока нечего клеймить.")]
+    NothingToClaim,
 }

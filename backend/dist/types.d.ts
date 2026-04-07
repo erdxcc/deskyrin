@@ -20,7 +20,33 @@ export interface UserRow {
     wallet_public_key: string | null;
     wallet_secret_encrypted: string | null;
     wallet_created_at: string | null;
+    wallet_link_nonce?: string | null;
     reward_balance_usdc_micro?: number | null;
+    /** Legacy; migrated into ac_balance. */
+    token_balance?: number | null;
+    /** Action Tokens — from campaigns; non-transferable in product rules; stake → PT. */
+    ac_balance?: number | null;
+    /** Protocol Tokens — from staking AC; spendable / withdrawable (MVP ledger). */
+    pt_balance?: number | null;
+}
+export interface CampaignRow {
+    id: string;
+    partner_id: string;
+    title: string;
+    description: string | null;
+    influencer_name: string;
+    partner_ad_note: string | null;
+    created_at: string;
+}
+export interface CampaignTaskRow {
+    id: string;
+    campaign_id: string;
+    title: string;
+    description: string | null;
+    target_count: number;
+    token_reward: number;
+    sort_order: number;
+    created_at: string;
 }
 export interface QrCodeRow {
     bottle_id: string;

@@ -1,12 +1,15 @@
 import cors from "cors";
 import express from "express";
 import { authRouter } from "./routes/auth.js";
+import { campaignsRouter } from "./routes/campaigns.js";
 import { demoRouter } from "./routes/demo.js";
 import { eventsRouter } from "./routes/events.js";
 import { partnersRouter } from "./routes/partners.js";
 import { qrRouter } from "./routes/qr.js";
 import { rewardsRouter } from "./routes/rewards.js";
+import { tokensRouter } from "./routes/tokens.js";
 import { usersRouter } from "./routes/users.js";
+import { walletRouter } from "./routes/wallet.js";
 export function createApp() {
     const app = express();
     app.use(cors());
@@ -17,10 +20,13 @@ export function createApp() {
     app.use("/api/v1/auth", authRouter);
     app.use("/api/v1/users", usersRouter);
     app.use("/api/v1/partners", partnersRouter);
+    app.use("/api/v1/campaigns", campaignsRouter);
     app.use("/api/v1/qr", qrRouter);
     app.use("/api/v1/events", eventsRouter);
     app.use("/api/v1/demo", demoRouter);
     app.use("/api/v1/rewards", rewardsRouter);
+    app.use("/api/v1/tokens", tokensRouter);
+    app.use("/api/v1/wallet", walletRouter);
     app.use((err, _req, res, _next) => {
         console.error(err);
         res.status(500).json({ error: "INTERNAL_ERROR" });

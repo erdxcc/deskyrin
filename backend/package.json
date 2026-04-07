@@ -10,17 +10,18 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "npm run build && node dist/index.js",
-    "db:seed": "tsx src/scripts/seed.ts",
-    "verify:wallet": "tsx src/scripts/verify-wallet-on-first-scan.ts"
+    "db:seed": "tsx src/scripts/seed.ts"
   },
   "dependencies": {
     "@solana/spl-token": "^0.4.13",
     "@solana/web3.js": "^1.98.4",
     "bcryptjs": "^2.4.3",
+    "bs58": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
+    "tweetnacl": "^1.0.3",
     "uuid": "^11.0.5",
     "zod": "^3.24.1"
   },

@@ -15,8 +15,11 @@ function toPublic(row) {
         lastScanAt: row.last_scan_at,
         externalRef: row.external_ref,
         walletPublicKey: row.wallet_public_key,
+        walletCustodial: Boolean(row.wallet_public_key && row.wallet_secret_encrypted),
         walletCreatedAt: row.wallet_created_at,
         rewardBalanceUsdcMicro: row.reward_balance_usdc_micro ?? 0,
+        acBalance: row.ac_balance ?? row.token_balance ?? 0,
+        ptBalance: row.pt_balance ?? 0,
     };
 }
 function normalizeEmail(email) {
@@ -69,6 +72,11 @@ export function ensureCustodialWallet(userId) {
     if (row.wallet_public_key && row.wallet_secret_encrypted) {
         return { user: toPublic(row), walletCreatedThisSession: false };
     }
+    if (row.wallet_public_key && !row.wallet_secret_encrypted) {
+        const err = new Error("EXTERNAL_WALLET_ALREADY_LINKED");
+        err.code = "EXTERNAL_WALLET_ALREADY_LINKED";
+        throw err;
+    }
     const kp = Keypair.generate();
     const secretJson = JSON.stringify(Array.from(kp.secretKey));
     const enc = encryptSecret(secretJson, config.walletEncryptionSecret);
@@ -83,6 +91,51 @@ export function ensureCustodialWallet(userId) {
     const updated = sqlRow(database.prepare(`SELECT * FROM users WHERE id = ?`).get(userId));
     return { user: toPublic(updated), walletCreatedThisSession: true };
 }
+export function issueWalletLinkChallenge(userId) {
+    const database = getDb();
+    const row = getUserByIdInternal(userId);
+    if (!row) {
+        const err = new Error("USER_NOT_FOUND");
+        err.code = "USER_NOT_FOUND";
+        throw err;
+    }
+    const nonce = uuidv4();
+    const message = `Deskyrin wallet link\nUser: ${userId}\nNonce: ${nonce}\n\nOnly sign if you trust this app.`;
+    database
+        .prepare(`UPDATE users SET wallet_link_nonce = ?, updated_at = datetime('now') WHERE id = ?`)
+        .run(nonce, userId);
+    return { nonce, message };
+}
+export function linkExternalWallet(userId, walletPublicKey, nonce) {
+    const database = getDb();
+    const row = getUserByIdInternal(userId);
+    if (!row) {
+        const err = new Error("USER_NOT_FOUND");
+        err.code = "USER_NOT_FOUND";
+        throw err;
+    }
+    if (!row.wallet_link_nonce || row.wallet_link_nonce !== nonce) {
+        const err = new Error("INVALID_WALLET_LINK_NONCE");
+        err.code = "INVALID_WALLET_LINK_NONCE";
+        throw err;
+    }
+    if (row.wallet_secret_encrypted) {
+        const err = new Error("CUSTODIAL_WALLET_ALREADY_EXISTS");
+        err.code = "CUSTODIAL_WALLET_ALREADY_EXISTS";
+        throw err;
+    }
+    database
+        .prepare(`UPDATE users SET
+        wallet_public_key = ?,
+        wallet_secret_encrypted = NULL,
+        wallet_created_at = COALESCE(wallet_created_at, datetime('now')),
+        wallet_link_nonce = NULL,
+        updated_at = datetime('now')
+       WHERE id = ?`)
+        .run(walletPublicKey, userId);
+    const updated = sqlRow(database.prepare(`SELECT * FROM users WHERE id = ?`).get(userId));
+    return toPublic(updated);
+}
 export function addRewardBalance(userId, usdcMicro) {
     if (usdcMicro <= 0)
         return;
@@ -92,6 +145,87 @@ export function addRewardBalance(userId, usdcMicro) {
         updated_at = datetime('now')
        WHERE id = ?`)
         .run(usdcMicro, userId);
+}
+/** Credit Action Tokens from completed campaign tasks. */
+export function addAcBalance(userId, amount) {
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isInteger(amount))
+        return;
+    getDb()
+        .prepare(`UPDATE users SET
+        ac_balance = COALESCE(ac_balance, 0) + ?,
+        updated_at = datetime('now')
+       WHERE id = ?`)
+        .run(amount, userId);
+}
+/** Credit PT (e.g. staking claim). */
+export function addPtBalance(userId, amount) {
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isInteger(amount))
+        return;
+    getDb()
+        .prepare(`UPDATE users SET
+        pt_balance = COALESCE(pt_balance, 0) + ?,
+        updated_at = datetime('now')
+       WHERE id = ?`)
+        .run(amount, userId);
+}
+/** Spend Protocol Tokens at a partner (checkout simulation). */
+export function spendPtBalance(userId, amount) {
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isInteger(amount)) {
+        const err = new Error("INVALID_AMOUNT");
+        err.code = "INVALID_AMOUNT";
+        throw err;
+    }
+    const database = getDb();
+    const row = getUserByIdInternal(userId);
+    if (!row) {
+        const err = new Error("USER_NOT_FOUND");
+        err.code = "USER_NOT_FOUND";
+        throw err;
+    }
+    const current = row.pt_balance ?? 0;
+    if (current < amount) {
+        const err = new Error("INSUFFICIENT_BALANCE");
+        err.code = "INSUFFICIENT_BALANCE";
+        throw err;
+    }
+    database
+        .prepare(`UPDATE users SET
+        pt_balance = ?,
+        updated_at = datetime('now')
+       WHERE id = ?`)
+        .run(current - amount, userId);
+    const updated = sqlRow(database.prepare(`SELECT * FROM users WHERE id = ?`).get(userId));
+    return toPublic(updated);
+}
+/** Spend AC at partner-only checkout (non-transferable elsewhere). */
+export function spendAcBalance(userId, amount) {
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isInteger(amount)) {
+        const err = new Error("INVALID_AMOUNT");
+        err.code = "INVALID_AMOUNT";
+        throw err;
+    }
+    const database = getDb();
+    const row = getUserByIdInternal(userId);
+    if (!row) {
+        const err = new Error("USER_NOT_FOUND");
+        err.code = "USER_NOT_FOUND";
+        throw err;
+    }
+    const ac = row.ac_balance ?? row.token_balance ?? 0;
+    if (ac < amount) {
+        const err = new Error("INSUFFICIENT_BALANCE");
+        err.code = "INSUFFICIENT_BALANCE";
+        throw err;
+    }
+    database
+        .prepare(`UPDATE users SET
+        ac_balance = ?,
+        token_balance = ?,
+        updated_at = datetime('now')
+       WHERE id = ?`)
+        .run(ac - amount, ac - amount, userId);
+    const updated = sqlRow(database.prepare(`SELECT * FROM users WHERE id = ?`).get(userId));
+    return toPublic(updated);
 }
 /** Spend from in-app reward balance (e.g. partner checkout simulation). */
 export function spendRewardBalance(userId, amountMicro) {

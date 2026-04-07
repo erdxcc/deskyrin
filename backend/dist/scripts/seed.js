@@ -1,8 +1,9 @@
 /**
- * Seed demo partners + QR codes. Run: npm run db:seed (from backend).
+ * Seed demo partners, QR codes, and campaigns. Run: npm run db:seed (from backend).
  */
 import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
+import * as campaignService from "../services/campaignService.js";
 import * as partnerService from "../services/partnerService.js";
 import * as qrService from "../services/qrService.js";
 getDb();
@@ -21,6 +22,11 @@ const DEMO_PARTNERS = [
     {
         id: "demo-volt",
         name: "Volt Energy",
+        solanaPoolPartnerPubkey: null,
+    },
+    {
+        id: "demo-gym",
+        name: "FitLab Gym",
         solanaPoolPartnerPubkey: null,
     },
 ];
@@ -58,4 +64,23 @@ for (let i = 1; i <= 5; i++) {
     });
     console.log("QR registered:", bottleId);
 }
+campaignService.seedCampaignIfMissing({
+    id: "demo-fitlab-3-visits",
+    partnerId: "demo-gym",
+    title: "Train with us — 3 visits",
+    description: "Influencer-led drop: complete the visit streak at FitLab and earn partner-backed tokens.",
+    influencerName: "Alex Rivera",
+    partnerAdNote: "Reward pool funded by FitLab’s local ad spend.",
+    tasks: [
+        {
+            id: "task-demo-gym-visits",
+            title: "Visit FitLab",
+            description: "Check in at the partner location (demo: tap once per visit).",
+            targetCount: 3,
+            tokenReward: 50,
+            sortOrder: 0,
+        },
+    ],
+});
+console.log("Campaign seeded: demo-fitlab-3-visits (if new)");
 console.log("Seed done. WALLET_ENCRYPTION_SECRET length:", config.walletEncryptionSecret.length);

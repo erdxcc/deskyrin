@@ -1,40 +1,43 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
-import type { PublicPartner } from "../api/types";
+import type { CampaignSummary, PublicPartner } from "../api/types";
 import { Reveal } from "../components/Reveal";
 import { useAuth } from "../context/AuthContext";
 import { Logo } from "../components/Logo";
 
 const VALUE_CARDS = [
-  "Real value, not points.",
-  "Verified. Traceable. Immutable.",
-  "Transparency for everyone.",
+  "Creators and brands run real-world tasks together.",
+  "Your community earns AC backed by partner ad budgets.",
+  "Lock AC for days — PT vests on a curve; spend both at partners.",
 ] as const;
 
 const STEPS = [
   {
     n: "01",
-    title: "Connect",
-    body: <>One account, all partners.</>,
+    title: "Join",
+    body: <>Sign in once — see every live campaign.</>,
   },
   {
     n: "02",
-    title: "Claim",
+    title: "Complete",
     body: (
       <>
-        Scan the QR. <span className="font-mono text-[0.95em] text-violet-200/90">Mint</span>{" "}
-        your proof.
+        Finish steps (e.g. visits) and track{" "}
+        <span className="font-mono text-[0.95em] text-violet-200/90">progress</span>.
       </>
     ),
   },
   {
     n: "03",
-    title: "Settle",
+    title: "Earn",
     body: (
       <>
-        Drop off. Collect{" "}
-        <span className="font-mono text-[0.95em] text-violet-200/90">USDC</span>.
+        Earn{" "}
+        <span className="font-mono text-[0.95em] text-violet-200/90">AC</span>
+        , then stake for{" "}
+        <span className="font-mono text-[0.95em] text-violet-200/90">PT</span>{" "}
+        funded by the partner’s campaign.
       </>
     ),
   },
@@ -43,12 +46,20 @@ const STEPS = [
 export function Home() {
   const { user } = useAuth();
   const [partners, setPartners] = useState<PublicPartner[]>([]);
+  const [campaigns, setCampaigns] = useState<CampaignSummary[]>([]);
 
   useEffect(() => {
     void api
       .listPartners()
       .then((r) => setPartners(r.partners))
       .catch(() => setPartners([]));
+  }, []);
+
+  useEffect(() => {
+    void api
+      .listCampaigns(null)
+      .then((r) => setCampaigns(r.campaigns))
+      .catch(() => setCampaigns([]));
   }, []);
 
   return (
@@ -64,19 +75,19 @@ export function Home() {
           </Reveal>
 
           <Reveal delayMs={120} className="relative mt-12 max-w-5xl sm:mt-16 md:mt-16">
-            <h1 className="font-display flex flex-nowrap items-baseline gap-2 text-4xl font-semibold leading-none tracking-tight text-primary sm:gap-3 sm:text-5xl md:gap-4 md:text-6xl lg:text-7xl">
-              <span className="whitespace-nowrap">Scan. Return.</span>
-              <span className="text-gradient whitespace-nowrap">Earn USDC.</span>
+            <h1 className="font-display flex flex-wrap items-baseline gap-2 text-4xl font-semibold leading-none tracking-tight text-primary sm:gap-3 sm:text-5xl md:gap-4 md:text-6xl lg:text-7xl">
+              <span className="whitespace-nowrap">Creators × partners.</span>
+              <span className="text-gradient whitespace-nowrap">Tasks → tokens.</span>
             </h1>
             <p className="mt-6 font-display text-xl font-medium tracking-tight text-secondary/90 sm:mt-8 sm:text-2xl md:text-2xl lg:text-3xl">
-              Every bottle matters.
+              Community rewards backed by brand campaigns.
             </p>
           </Reveal>
 
           <Reveal delayMs={280} className="relative mt-10 flex flex-wrap gap-4 sm:mt-12 md:mt-14">
             {user ? (
-              <Link to="/scan" className="btn-gradient px-8 py-3.5">
-                Scan packaging QR
+              <Link to="/campaigns" className="btn-gradient px-8 py-3.5">
+                Open campaigns
               </Link>
             ) : (
               <>
@@ -114,17 +125,7 @@ export function Home() {
                     }}
                   >
                     <p className="font-display text-sm font-medium leading-snug tracking-tight text-primary/95 sm:text-base md:text-lg">
-                      {line === "Verified. Traceable. Immutable." ? (
-                        <>
-                          Verified. Traceable.{" "}
-                          <span className="font-mono text-[0.92em] text-violet-200/90">
-                            Immutable
-                          </span>
-                          .
-                        </>
-                      ) : (
-                        line
-                      )}
+                      {line}
                     </p>
                   </div>
                 </Reveal>
@@ -218,11 +219,51 @@ export function Home() {
         </section>
       </Reveal>
 
+      {campaigns.length > 0 && (
+        <Reveal delayMs={220}>
+          <section className="border-t border-white/[0.06] py-20 sm:py-24 md:py-28">
+            <h2 className="font-display text-2xl font-semibold tracking-tight text-primary md:text-3xl">
+              Live campaigns
+            </h2>
+            <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:mt-14">
+              {campaigns.map((c, i) => (
+                <li key={c.id}>
+                  <Reveal delayMs={i * 200}>
+                    <Link
+                      to={`/campaigns/${encodeURIComponent(c.id)}`}
+                      className="glass-panel-interactive block rounded-2xl p-7 text-left sm:p-8"
+                    >
+                      <p className="text-xs font-medium uppercase tracking-wider text-secondary">
+                        {c.partnerName} · {c.influencerName}
+                      </p>
+                      <p className="mt-2 font-display text-lg font-semibold text-primary">
+                        {c.title}
+                      </p>
+                      <p className="mt-4 text-sm text-violet-300/85">
+                        View tasks →
+                      </p>
+                    </Link>
+                  </Reveal>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-10 text-center">
+              <Link
+                to="/campaigns"
+                className="text-sm text-violet-300/90 underline-offset-4 hover:underline"
+              >
+                All campaigns
+              </Link>
+            </div>
+          </section>
+        </Reveal>
+      )}
+
       {partners.length > 0 && (
         <Reveal delayMs={220}>
           <section className="border-t border-white/[0.06] py-20 sm:py-24 md:py-28">
             <h2 className="font-display text-2xl font-semibold tracking-tight text-primary md:text-3xl">
-              Partner
+              Partners
             </h2>
             <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:mt-14">
               {partners.map((p, i) => (
@@ -236,7 +277,7 @@ export function Home() {
                         {p.name}
                       </p>
                       <p className="mt-4 text-sm text-violet-300/85">
-                        Pay with rewards →
+                        Pay with PT →
                       </p>
                     </Link>
                   </Reveal>
@@ -246,6 +287,35 @@ export function Home() {
           </section>
         </Reveal>
       )}
+
+      <Reveal delayMs={120}>
+        <section
+          className="border-t border-white/[0.06] py-16 sm:py-20 md:py-24"
+          aria-labelledby="audience-pitch"
+        >
+          <div className="mx-auto max-w-3xl text-center">
+            <p
+              id="audience-pitch"
+              className="font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-slate-500 sm:text-[11px]"
+            >
+              For partners & creators
+            </p>
+            <div className="mt-10 space-y-6 font-display text-lg font-medium leading-snug tracking-tight text-primary sm:text-xl md:text-2xl">
+              <p>Partner? Pay for actions, not attention.</p>
+              <p>Influencer? Earn from impact, not impression.</p>
+            </div>
+            <p className="mt-10 text-body text-secondary font-light leading-relaxed text-sm sm:text-base">
+              Campaigns pay{" "}
+              <span className="font-mono text-violet-200/90">AC</span> — spend
+              them only at partner checkouts, or lock them in a time stake: longer
+              locks earn a higher{" "}
+              <span className="font-mono text-violet-200/90">PT</span> cap, vested
+              day by day (no instant swap). PT is liquid for partners and exit.
+              On-chain program + custodial flows live in the repo.
+            </p>
+          </div>
+        </section>
+      </Reveal>
     </div>
   );
 }

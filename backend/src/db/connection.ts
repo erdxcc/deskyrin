@@ -28,6 +28,46 @@ function ensureUserRewardColumn(database: DatabaseSync) {
   );
 }
 
+function ensureUserTokenBalanceColumn(database: DatabaseSync) {
+  const cols = sqlRows<{ name: string }>(
+    database.prepare(`PRAGMA table_info(users)`).all()
+  );
+  if (cols.some((c) => c.name === "token_balance")) return;
+  database.exec(
+    `ALTER TABLE users ADD COLUMN token_balance INTEGER NOT NULL DEFAULT 0`
+  );
+}
+
+/** Action tokens (campaign) + Protocol tokens (after stake); migrates legacy token_balance → ac_balance once. */
+function ensureUserAcPtBalanceColumns(database: DatabaseSync) {
+  const cols = sqlRows<{ name: string }>(
+    database.prepare(`PRAGMA table_info(users)`).all()
+  );
+  const hasAc = cols.some((c) => c.name === "ac_balance");
+  const hasPt = cols.some((c) => c.name === "pt_balance");
+  if (!hasAc) {
+    database.exec(
+      `ALTER TABLE users ADD COLUMN ac_balance INTEGER NOT NULL DEFAULT 0`
+    );
+    database.exec(
+      `UPDATE users SET ac_balance = COALESCE(token_balance, 0)`
+    );
+  }
+  if (!hasPt) {
+    database.exec(
+      `ALTER TABLE users ADD COLUMN pt_balance INTEGER NOT NULL DEFAULT 0`
+    );
+  }
+}
+
+function ensureUserWalletLinkNonceColumn(database: DatabaseSync) {
+  const cols = sqlRows<{ name: string }>(
+    database.prepare(`PRAGMA table_info(users)`).all()
+  );
+  if (cols.some((c) => c.name === "wallet_link_nonce")) return;
+  database.exec(`ALTER TABLE users ADD COLUMN wallet_link_nonce TEXT`);
+}
+
 function migrate(database: DatabaseSync) {
   database.exec(`
     CREATE TABLE IF NOT EXISTS partners (
@@ -40,6 +80,9 @@ function migrate(database: DatabaseSync) {
 
   ensureUsersTable(database);
   ensureUserRewardColumn(database);
+  ensureUserTokenBalanceColumn(database);
+  ensureUserAcPtBalanceColumns(database);
+  ensureUserWalletLinkNonceColumn(database);
 
   database.exec(`
     CREATE TABLE IF NOT EXISTS qr_codes (
@@ -81,5 +124,55 @@ function migrate(database: DatabaseSync) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_events_bottle ON scan_events(bottle_id);
+
+    CREATE TABLE IF NOT EXISTS campaigns (
+      id TEXT PRIMARY KEY,
+      partner_id TEXT NOT NULL REFERENCES partners(id),
+      title TEXT NOT NULL,
+      description TEXT,
+      influencer_name TEXT NOT NULL,
+      partner_ad_note TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_campaigns_partner ON campaigns(partner_id);
+
+    CREATE TABLE IF NOT EXISTS campaign_tasks (
+      id TEXT PRIMARY KEY,
+      campaign_id TEXT NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT,
+      target_count INTEGER NOT NULL CHECK (target_count >= 1),
+      token_reward INTEGER NOT NULL CHECK (token_reward >= 0),
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_campaign_tasks_campaign ON campaign_tasks(campaign_id);
+
+    CREATE TABLE IF NOT EXISTS user_task_progress (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      task_id TEXT NOT NULL REFERENCES campaign_tasks(id) ON DELETE CASCADE,
+      progress_count INTEGER NOT NULL DEFAULT 0 CHECK (progress_count >= 0),
+      completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0, 1)),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, task_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS stake_positions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      stake_idx INTEGER NOT NULL,
+      ac_amount INTEGER NOT NULL CHECK (ac_amount > 0),
+      lock_days INTEGER NOT NULL,
+      started_at TEXT NOT NULL,
+      maturity_at TEXT NOT NULL,
+      total_pt_entitled INTEGER NOT NULL,
+      claimed_pt INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (user_id, stake_idx)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_stakes_user ON stake_positions(user_id);
   `);
 }

@@ -51,12 +51,12 @@ export function Layout() {
                   Dashboard
                 </Link>
                 <Link
-                  to="/scan"
+                  to="/campaigns"
                   className={`transition-colors duration-300 ease-smooth hover:text-primary ${
-                    loc.pathname === "/scan" ? "text-primary" : ""
+                    loc.pathname.startsWith("/campaign") ? "text-primary" : ""
                   }`}
                 >
-                  Scan
+                  Campaigns
                 </Link>
                 <button
                   type="button"
@@ -92,7 +92,7 @@ export function Layout() {
           Deskyrin
         </p>
         <p className="mt-4 mx-auto max-w-md font-display text-sm font-medium tracking-tight text-secondary/90 sm:text-base">
-          Closing the loop, block by block.
+          Partner-backed tasks. Creator-led campaigns.
         </p>
       </footer>
     </div>

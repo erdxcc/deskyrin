@@ -130,7 +130,13 @@ export async function firstScan(input) {
         err.code = "ALREADY_ASSIGNED_OTHER_USER";
         throw err;
     }
-    const { user, walletCreatedThisSession } = userService.ensureCustodialWallet(input.userId);
+    const user = userService.getUserById(input.userId);
+    if (!user) {
+        const err = new Error("USER_NOT_FOUND");
+        err.code = "USER_NOT_FOUND";
+        throw err;
+    }
+    const walletCreatedThisSession = false;
     if (!qrRow.assigned_user_id) {
         database
             .prepare(`UPDATE qr_codes SET assigned_user_id = ?, updated_at = datetime('now') WHERE bottle_id = ?`)
@@ -143,6 +149,11 @@ export async function firstScan(input) {
     let onChainMint = false;
     if (isSolanaConfigured()) {
         assertPartnerSolanaMatchesChain(qrRow.partner_id);
+        if (!user.walletPublicKey) {
+            const err = new Error("NO_WALLET_FOR_CHAIN");
+            err.code = "NO_WALLET_FOR_CHAIN";
+            throw err;
+        }
         try {
             const { bottleMint, signature } = await mintBottleOnChain({
                 bottleId: input.bottleId,
