@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import { config } from "./config.js";
 import { authRouter } from "./routes/auth.js";
 import { campaignsRouter } from "./routes/campaigns.js";
 import { demoRouter } from "./routes/demo.js";
@@ -13,7 +14,16 @@ import { walletRouter } from "./routes/wallet.js";
 
 export function createApp() {
   const app = express();
-  app.use(cors());
+  app.use(
+    cors(
+      config.corsOrigins.length
+        ? {
+            origin: config.corsOrigins,
+            credentials: false,
+          }
+        : undefined
+    )
+  );
   app.use(express.json({ limit: "512kb" }));
 
   app.get("/health", (_req, res) => {

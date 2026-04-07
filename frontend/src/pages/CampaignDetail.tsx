@@ -35,14 +35,14 @@ export function CampaignDetailPage() {
       setCampaign(r.campaign);
       await refreshUser();
       if (r.awardedAc > 0) {
-        setToast(`You earned ${r.awardedAc} AC.`);
+        setToast(`Earned ${r.awardedAc} AC.`);
       } else {
-        setToast("Progress saved.");
+        setToast("Saved.");
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Could not record.";
       if (msg.includes("TASK_ALREADY_COMPLETED")) {
-        setActionErr("This task is already completed.");
+        setActionErr("Task already completed.");
       } else {
         setActionErr(msg);
       }
@@ -94,7 +94,7 @@ export function CampaignDetailPage() {
         )}
         {user && (
           <p className="mt-6 text-sm text-secondary">
-            Balances:{" "}
+            Balance:{" "}
             <span className="font-medium text-primary">
               {user.acBalance ?? 0} AC
             </span>
@@ -141,9 +141,9 @@ export function CampaignDetailPage() {
                   to="/login"
                   className="text-violet-300/90 underline-offset-4 hover:underline"
                 >
-                  Sign in
+                  Log in
                 </Link>{" "}
-                to log progress.
+                to save progress.
               </p>
             ) : (
               <button
@@ -155,8 +155,8 @@ export function CampaignDetailPage() {
                 {busyTaskId === t.id
                   ? "Saving…"
                   : t.completed
-                    ? "Done"
-                    : "I completed a step"}
+                    ? "Completed"
+                    : "Record step"}
               </button>
             )}
           </div>

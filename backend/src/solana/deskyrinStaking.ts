@@ -1,5 +1,5 @@
 /**
- * Instruction builders for `setup_deskyrin_staking`, `stake_ac_locked`, `claim_vested_pt`.
+ * Instruction builders for `setup_deskyrin_staking`, `stake_ac_locked`, `claim_vested_pt`, `faucet_ac`.
  * Deploy the updated program, run `setup_deskyrin_staking` once, then wire custodial txs from here.
  */
 import { createHash } from "node:crypto";
@@ -133,6 +133,32 @@ export function buildClaimVestedPtIx(input: {
       { pubkey: input.user, isSigner: true, isWritable: true },
       { pubkey: input.userPtAta, isSigner: false, isWritable: true },
       { pubkey: input.ptMint, isSigner: false, isWritable: true },
+      { pubkey: input.programAuthority, isSigner: false, isWritable: false },
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data,
+  });
+}
+
+/** Devnet/QA: user signs; mints AC to their ATA (capped on-chain per tx). */
+export function buildFaucetAcIx(input: {
+  user: PublicKey;
+  amount: bigint;
+  deskyrinConfig: PublicKey;
+  acMint: PublicKey;
+  userAcAta: PublicKey;
+  programAuthority: PublicKey;
+}): TransactionInstruction {
+  const data = Buffer.concat([ixDiscriminator("faucet_ac"), u64LE(input.amount)]);
+  return new TransactionInstruction({
+    programId: programIdPk(),
+    keys: [
+      { pubkey: input.deskyrinConfig, isSigner: false, isWritable: false },
+      { pubkey: input.acMint, isSigner: false, isWritable: true },
+      { pubkey: input.user, isSigner: true, isWritable: true },
+      { pubkey: input.userAcAta, isSigner: false, isWritable: true },
       { pubkey: input.programAuthority, isSigner: false, isWritable: false },
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
       { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },

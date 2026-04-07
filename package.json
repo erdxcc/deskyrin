@@ -1,8 +1,8 @@
 {
   "license": "ISC",
   "scripts": {
-    "install:all": "npm install && npm install --prefix backend && npm install --prefix app",
-    "dev": "concurrently -k -n backend,app -c cyan,magenta \"npm run dev --prefix backend\" \"npm run dev --prefix app\"",
+    "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend",
+    "dev": "concurrently -k -n backend,frontend -c cyan,magenta \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
     "start": "npm run dev",
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check"

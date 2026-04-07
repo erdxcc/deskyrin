@@ -20,6 +20,9 @@ pub const BOTTLE_ESCROW_SEED: &[u8] = b"bottle_escrow";
 pub const DESKYRIN_CFG_SEED: &[u8] = b"deskyrin_cfg";
 pub const STAKE_POS_SEED: &[u8] = b"stake";
 
+/// Raw AC (6 decimals) per `faucet_ac` tx caps — devnet / QA only.
+pub const MAX_FAUCET_AC_PER_TX: u64 = 100_000_000;
+
 #[program]
 pub mod recycling_program {
     use super::*;
@@ -304,6 +307,34 @@ pub mod recycling_program {
 
         Ok(())
     }
+
+    /// Mint AC to the caller's ATA (devnet faucet). Caller pays rent if ATA is created.
+    pub fn faucet_ac(ctx: Context<FaucetAc>, amount: u64) -> Result<()> {
+        require!(amount > 0, ErrorCode::InvalidAmount);
+        require!(
+            amount <= MAX_FAUCET_AC_PER_TX,
+            ErrorCode::FaucetAmountTooLarge
+        );
+
+        let bump = ctx.bumps.program_authority;
+        let seeds: &[&[u8]] = &[PROGRAM_AUTHORITY_SEED, &[bump]];
+        let signer = &[seeds];
+
+        token::mint_to(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                MintTo {
+                    mint: ctx.accounts.ac_mint.to_account_info(),
+                    to: ctx.accounts.user_ac_ata.to_account_info(),
+                    authority: ctx.accounts.program_authority.to_account_info(),
+                },
+                signer,
+            ),
+            amount,
+        )?;
+
+        Ok(())
+    }
 }
 
 fn total_pt_entitled(ac: u64, lock_days: u16) -> Result<u64> {
@@ -394,6 +425,7 @@ pub struct SetupDeskyrinStaking<'info> {
     pub vault_ac: Account<'info, TokenAccount>,
 
     #[account(seeds = [PROGRAM_AUTHORITY_SEED], bump)]
+    /// CHECK: PDA signer; constrained by fixed seed+bump and used only as program authority.
     pub program_authority: UncheckedAccount<'info>,
 
     pub token_program: Program<'info, Token>,
@@ -465,6 +497,36 @@ pub struct ClaimVestedPt<'info> {
     pub pt_mint: Account<'info, Mint>,
 
     #[account(seeds = [PROGRAM_AUTHORITY_SEED], bump)]
+    /// CHECK: PDA signer; constrained by fixed seed+bump and used only as mint authority.
+    pub program_authority: UncheckedAccount<'info>,
+
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct FaucetAc<'info> {
+    #[account(seeds = [DESKYRIN_CFG_SEED], bump)]
+    pub deskyrin_config: Account<'info, DeskyrinConfig>,
+
+    #[account(mut, constraint = ac_mint.key() == deskyrin_config.ac_mint)]
+    pub ac_mint: Account<'info, Mint>,
+
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    #[account(
+        init_if_needed,
+        payer = user,
+        associated_token::mint = ac_mint,
+        associated_token::authority = user,
+        associated_token::token_program = token_program,
+    )]
+    pub user_ac_ata: Account<'info, TokenAccount>,
+
+    #[account(seeds = [PROGRAM_AUTHORITY_SEED], bump)]
+    /// CHECK: PDA signer; mint authority for AC.
     pub program_authority: UncheckedAccount<'info>,
 
     pub token_program: Program<'info, Token>,
@@ -524,6 +586,7 @@ pub struct FundRewardPool<'info> {
     pub usdc_mint: Account<'info, Mint>,
 
     #[account(seeds = [PROGRAM_AUTHORITY_SEED], bump)]
+    /// CHECK: PDA signer; constrained by fixed seed+bump and used only as vault authority.
     pub program_authority: UncheckedAccount<'info>,
 
     pub token_program: Program<'info, Token>,
@@ -564,6 +627,7 @@ pub struct MintBottleNft<'info> {
         seeds = [BOTTLE_ESCROW_SEED, bottle_mint.key().as_ref()],
         bump
     )]
+    /// CHECK: PDA owner of escrow ATA; authority is validated via seeds and ATA constraints.
     pub bottle_escrow: UncheckedAccount<'info>,
 
     #[account(
@@ -576,6 +640,7 @@ pub struct MintBottleNft<'info> {
     pub escrow_bottle_ata: Account<'info, TokenAccount>,
 
     #[account(seeds = [PROGRAM_AUTHORITY_SEED], bump)]
+    /// CHECK: PDA signer; constrained by fixed seed+bump and used as bottle mint authority.
     pub program_authority: UncheckedAccount<'info>,
 
     #[account(mut)]
@@ -614,6 +679,7 @@ pub struct RecycleBottle<'info> {
         seeds = [BOTTLE_ESCROW_SEED, bottle_mint.key().as_ref()],
         bump
     )]
+    /// CHECK: PDA owner of escrow ATA; validated by seeds and escrow ATA constraints.
     pub bottle_escrow: UncheckedAccount<'info>,
 
     #[account(
@@ -642,6 +708,7 @@ pub struct RecycleBottle<'info> {
     pub usdc_mint: Account<'info, Mint>,
 
     #[account(seeds = [PROGRAM_AUTHORITY_SEED], bump)]
+    /// CHECK: PDA signer; constrained by fixed seed+bump and used as reward pool authority.
     pub program_authority: UncheckedAccount<'info>,
 
     #[account(mut)]
@@ -704,4 +771,6 @@ pub enum ErrorCode {
     StakeIdxMismatch,
     #[msg("Пока нечего клеймить.")]
     NothingToClaim,
+    #[msg("Faucet amount exceeds per-transaction cap.")]
+    FaucetAmountTooLarge,
 }

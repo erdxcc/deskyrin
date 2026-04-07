@@ -92,7 +92,7 @@ export function Layout() {
           Deskyrin
         </p>
         <p className="mt-4 mx-auto max-w-md font-display text-sm font-medium tracking-tight text-secondary/90 sm:text-base">
-          Partner-backed tasks. Creator-led campaigns.
+          Partner-funded tasks. Clear token rules.
         </p>
       </footer>
     </div>

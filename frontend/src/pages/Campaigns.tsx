@@ -26,8 +26,7 @@ export function Campaigns() {
           Campaigns
         </h1>
         <p className="mt-4 text-body text-secondary font-light leading-relaxed">
-          Partner-backed tasks from creators you follow. Complete steps to earn
-          tokens funded by partner ad spend.
+          Complete tasks. Earn AC. Stake AC to receive PT over time.
         </p>
       </div>
 
@@ -35,7 +34,7 @@ export function Campaigns() {
 
       {!err && campaigns.length === 0 && (
         <p className="mt-12 text-body text-secondary font-light">
-          No campaigns yet. Run the backend seed to load demo data.
+          No campaigns yet. Run seed data and reload.
         </p>
       )}
 
@@ -47,7 +46,7 @@ export function Campaigns() {
               className="glass-panel-interactive block rounded-2xl p-7 text-left sm:p-8"
             >
               <p className="text-xs font-medium uppercase tracking-wider text-secondary">
-                {c.partnerName} · with {c.influencerName}
+                {c.partnerName} · {c.influencerName}
               </p>
               <h2 className="mt-3 font-display text-xl font-semibold text-primary">
                 {c.title}
@@ -58,7 +57,7 @@ export function Campaigns() {
                 </p>
               )}
               <p className="mt-4 text-sm text-violet-300/85">
-                {c.taskCount} task{c.taskCount === 1 ? "" : "s"} → Open
+                {c.taskCount} task{c.taskCount === 1 ? "" : "s"} · Open
               </p>
             </Link>
           </li>

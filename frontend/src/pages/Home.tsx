@@ -6,41 +6,12 @@ import { Reveal } from "../components/Reveal";
 import { useAuth } from "../context/AuthContext";
 import { Logo } from "../components/Logo";
 
-const VALUE_CARDS = [
-  "Creators and brands run real-world tasks together.",
-  "Your community earns AC backed by partner ad budgets.",
-  "Lock AC for days — PT vests on a curve; spend both at partners.",
-] as const;
+const VALUE_CARDS = ["Actual users", "Usable tokens", "Verified reputation"] as const;
 
 const STEPS = [
-  {
-    n: "01",
-    title: "Join",
-    body: <>Sign in once — see every live campaign.</>,
-  },
-  {
-    n: "02",
-    title: "Complete",
-    body: (
-      <>
-        Finish steps (e.g. visits) and track{" "}
-        <span className="font-mono text-[0.95em] text-violet-200/90">progress</span>.
-      </>
-    ),
-  },
-  {
-    n: "03",
-    title: "Earn",
-    body: (
-      <>
-        Earn{" "}
-        <span className="font-mono text-[0.95em] text-violet-200/90">AC</span>
-        , then stake for{" "}
-        <span className="font-mono text-[0.95em] text-violet-200/90">PT</span>{" "}
-        funded by the partner’s campaign.
-      </>
-    ),
-  },
+  { n: "01", title: "Sign in", body: <>Open campaigns and track progress.</> },
+  { n: "02", title: "Do tasks", body: <>Record completed steps.</> },
+  { n: "03", title: "Get tokens", body: <>Earn tokens that matter.</> },
 ] as const;
 
 export function Home() {
@@ -49,22 +20,15 @@ export function Home() {
   const [campaigns, setCampaigns] = useState<CampaignSummary[]>([]);
 
   useEffect(() => {
-    void api
-      .listPartners()
-      .then((r) => setPartners(r.partners))
-      .catch(() => setPartners([]));
+    void api.listPartners().then((r) => setPartners(r.partners)).catch(() => setPartners([]));
   }, []);
 
   useEffect(() => {
-    void api
-      .listCampaigns(null)
-      .then((r) => setCampaigns(r.campaigns))
-      .catch(() => setCampaigns([]));
+    void api.listCampaigns(null).then((r) => setCampaigns(r.campaigns)).catch(() => setCampaigns([]));
   }, []);
 
   return (
     <div className="mx-auto w-full max-w-[min(100%,92rem)] px-3 py-16 sm:px-5 sm:py-24 md:px-8 md:py-28">
-      {/* —— Hero + value props: прозрачная размытая «рамка» (frosted) —— */}
       <div className="relative w-full">
         <section
           className="relative w-full overflow-hidden rounded-3xl border border-white/[0.05] bg-white/[0.015] px-5 py-12 shadow-none backdrop-blur-2xl backdrop-saturate-100 sm:px-10 sm:py-14 md:px-14 md:py-16 md:backdrop-blur-3xl lg:px-16"
@@ -76,12 +40,9 @@ export function Home() {
 
           <Reveal delayMs={120} className="relative mt-12 max-w-5xl sm:mt-16 md:mt-16">
             <h1 className="font-display flex flex-wrap items-baseline gap-2 text-4xl font-semibold leading-none tracking-tight text-primary sm:gap-3 sm:text-5xl md:gap-4 md:text-6xl lg:text-7xl">
-              <span className="whitespace-nowrap">Creators × partners.</span>
-              <span className="text-gradient whitespace-nowrap">Tasks → tokens.</span>
+              <span className="whitespace-nowrap">Creators with partners</span>
+              <span className="w-full text-violet-300">For community</span>
             </h1>
-            <p className="mt-6 font-display text-xl font-medium tracking-tight text-secondary/90 sm:mt-8 sm:text-2xl md:text-2xl lg:text-3xl">
-              Community rewards backed by brand campaigns.
-            </p>
           </Reveal>
 
           <Reveal delayMs={280} className="relative mt-10 flex flex-wrap gap-4 sm:mt-12 md:mt-14">
@@ -92,16 +53,15 @@ export function Home() {
             ) : (
               <>
                 <Link to="/register" className="btn-gradient px-8 py-3.5">
-                  Get started
+                  Create account
                 </Link>
                 <Link to="/login" className="btn-ghost px-8 py-3.5">
-                  I have an account
+                  Log in
                 </Link>
               </>
             )}
           </Reveal>
 
-          {/* Why Deskyrin — один ряд, мягкие прямоугольники */}
           <div className="relative mt-12 pb-12 sm:mt-14 sm:pb-14 md:mt-16 md:pb-16">
             <Reveal delayMs={100} className="mb-8 w-full sm:mb-10">
               <p
@@ -118,7 +78,7 @@ export function Home() {
               {VALUE_CARDS.map((line, i) => (
                 <Reveal key={line} delayMs={i * 220} className="min-w-0">
                   <div
-                    className="h-full rounded-[1.35rem] border border-white/[0.1] bg-white/[0.06] px-5 py-6 backdrop-blur-xl transition-all duration-300 hover:border-violet-400/30 hover:shadow-[0_20px_50px_-20px_rgba(124,58,237,0.35)] sm:rounded-[1.5rem] sm:px-6 sm:py-7 md:py-8"
+                    className="h-full rounded-[1.35rem] border border-white/[0.1] bg-white/[0.06] px-5 py-6 text-center backdrop-blur-xl transition-all duration-300 hover:border-violet-400/30 hover:shadow-[0_20px_50px_-20px_rgba(124,58,237,0.35)] sm:rounded-[1.5rem] sm:px-6 sm:py-7 md:py-8"
                     style={{
                       boxShadow:
                         "inset 0 1px 0 0 rgba(255,255,255,0.08), 0 16px 48px -28px rgba(0,0,0,0.5)",
@@ -131,13 +91,17 @@ export function Home() {
                 </Reveal>
               ))}
             </ul>
+            <div className="mx-auto mt-4 grid w-full max-w-5xl grid-cols-1 gap-4 text-center sm:gap-5 md:grid-cols-3 md:gap-6">
+              <p className="text-xs text-secondary/80">for partners</p>
+              <p className="text-xs text-secondary/80">for community</p>
+              <p className="text-xs text-secondary/80">for creators</p>
+            </div>
           </div>
         </section>
       </div>
 
       <div className="h-12 sm:h-16 md:h-20" aria-hidden />
 
-      {/* —— Process stepper —— */}
       <Reveal>
         <section
           className="border-t border-white/[0.06] py-20 sm:py-24 md:py-28"
@@ -152,7 +116,6 @@ export function Home() {
             </p>
           </div>
 
-          {/* Mobile: vertical stepper */}
           <ol className="relative space-y-0 md:hidden">
             {STEPS.map((step, i) => (
               <li key={step.n} className="relative flex gap-6 pb-24 last:pb-0">
@@ -177,13 +140,9 @@ export function Home() {
             ))}
           </ol>
 
-          {/* Desktop: horizontal process + connectors */}
           <ol className="relative hidden md:flex md:w-full md:items-stretch md:gap-10 lg:gap-14">
             {STEPS.map((step, i) => (
-              <li
-                key={step.n}
-                className="relative flex min-w-0 flex-1 flex-col items-center"
-              >
+              <li key={step.n} className="relative flex min-w-0 flex-1 flex-col items-center">
                 <div className="flex w-full items-center justify-center">
                   {i > 0 ? (
                     <div
@@ -239,9 +198,7 @@ export function Home() {
                       <p className="mt-2 font-display text-lg font-semibold text-primary">
                         {c.title}
                       </p>
-                      <p className="mt-4 text-sm text-violet-300/85">
-                        View tasks →
-                      </p>
+                      <p className="mt-4 text-sm text-violet-300/85">Open campaign</p>
                     </Link>
                   </Reveal>
                 </li>
@@ -252,7 +209,7 @@ export function Home() {
                 to="/campaigns"
                 className="text-sm text-violet-300/90 underline-offset-4 hover:underline"
               >
-                All campaigns
+                View all campaigns
               </Link>
             </div>
           </section>
@@ -273,12 +230,8 @@ export function Home() {
                       to={`/partners/${encodeURIComponent(p.id)}`}
                       className="glass-panel-interactive block rounded-2xl p-7 text-left sm:p-8"
                     >
-                      <p className="font-display text-lg font-semibold text-primary">
-                        {p.name}
-                      </p>
-                      <p className="mt-4 text-sm text-violet-300/85">
-                        Pay with PT →
-                      </p>
+                      <p className="font-display text-lg font-semibold text-primary">{p.name}</p>
+                      <p className="mt-4 text-sm text-violet-300/85">Open partner page</p>
                     </Link>
                   </Reveal>
                 </li>
@@ -304,15 +257,6 @@ export function Home() {
               <p>Partner? Pay for actions, not attention.</p>
               <p>Influencer? Earn from impact, not impression.</p>
             </div>
-            <p className="mt-10 text-body text-secondary font-light leading-relaxed text-sm sm:text-base">
-              Campaigns pay{" "}
-              <span className="font-mono text-violet-200/90">AC</span> — spend
-              them only at partner checkouts, or lock them in a time stake: longer
-              locks earn a higher{" "}
-              <span className="font-mono text-violet-200/90">PT</span> cap, vested
-              day by day (no instant swap). PT is liquid for partners and exit.
-              On-chain program + custodial flows live in the repo.
-            </p>
           </div>
         </section>
       </Reveal>

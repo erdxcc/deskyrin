@@ -141,21 +141,20 @@ export function PartnerStore() {
           {partner.name}
         </h1>
         <p className="mt-4 text-body text-secondary font-light leading-relaxed">
-          Pay with Protocol Tokens (liquid) or Action Tokens (partner-only, not
-          transferable on a secondary market).
+          Pay with PT or AC. AC works only at partner locations.
         </p>
       </div>
 
       {!user ? (
         <div className="glass-panel mt-10 p-8 opacity-0-start animate-fade-up delay-1">
           <p className="text-body text-secondary font-light leading-relaxed">
-            Sign in to see balances and pay.
+            Log in to view balances and pay.
           </p>
           <Link
             to="/login"
             className="btn-gradient mt-6 inline-block px-6 py-2.5 text-sm"
           >
-            Sign in
+            Log in
           </Link>
         </div>
       ) : (
@@ -213,9 +212,7 @@ export function PartnerStore() {
 
           <div className="glass-panel space-y-6 border border-amber-500/15 bg-amber-500/[0.04] p-8 opacity-0-start animate-fade-up delay-3">
             <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-secondary">
-                AC balance (partner spend only)
-              </p>
+              <p className="text-xs font-medium uppercase tracking-wider text-secondary">AC balance</p>
               <p className="mt-2 font-display text-2xl font-semibold text-primary">
                 {acBal} AC
               </p>
@@ -275,7 +272,7 @@ export function PartnerStore() {
         to="/"
         className="mt-10 inline-block text-sm text-violet-300/90 underline-offset-4 hover:underline"
       >
-        ← All partners
+        ← Partners
       </Link>
     </div>
   );

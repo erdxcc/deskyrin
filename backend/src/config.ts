@@ -10,6 +10,10 @@ const rootDir = path.join(__dirname, "..");
 
 export const config = {
   port: Number(process.env.PORT) || 3001,
+  corsOrigins: (process.env.CORS_ORIGIN ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
   /** Solana JSON-RPC (e.g. https://api.devnet.solana.com or local validator). */
   solanaRpcUrl: process.env.SOLANA_RPC_URL ?? "",
   /** Recycling Anchor program id (default matches repo declare_id!). */

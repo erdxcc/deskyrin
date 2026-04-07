@@ -11,17 +11,17 @@ const partnerSolanaPk = process.env.SOLANA_PARTNER_PUBKEY?.trim() || null;
 const DEMO_PARTNERS = [
     {
         id: "demo-cola",
-        name: "Cola",
+        name: "Coca-Cola",
         solanaPoolPartnerPubkey: partnerSolanaPk,
     },
     {
         id: "demo-oasis",
-        name: "Oasis Water",
+        name: "Amazon",
         solanaPoolPartnerPubkey: null,
     },
     {
         id: "demo-volt",
-        name: "Volt Energy",
+        name: "Gold Apple",
         solanaPoolPartnerPubkey: null,
     },
     {

@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "start:prod": "node dist/index.js",
     "start": "npm run build && node dist/index.js",
     "db:seed": "tsx src/scripts/seed.ts"
   },
