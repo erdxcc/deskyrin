@@ -3,6 +3,8 @@
 Deskyrin is a campaign-driven platform built on Solana.
 Users complete partner tasks, earn AC, stake AC, and claim vested PT.
 
+https://deskyrin.vercel.app
+
 ## Repository Structure
 
 - `frontend/` — React + Vite web app
